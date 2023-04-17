@@ -15,4 +15,8 @@ static class Log
     {
         File.WriteAllText(path + fileName, value);
     }
+    public static void AppendAllText(string fileName, string value)
+    {
+        File.AppendAllText(path + fileName, value);
+    }
 }

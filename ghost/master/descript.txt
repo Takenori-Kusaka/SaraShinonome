@@ -1,13 +1,13 @@
 charset,UTF8
 
-craftman,manju_summoner
-craftmanw,饅頭遣い
-craftmanurl,https://twitter.com/manju_summoner
+craftman,Takenori Kusaka
+craftmanw,Takenori Kusaka
+craftmanurl,https://twitter.com/TakenoriKusaka
 
-name,AI妹アイちゃん
+name,AI後輩東雲沙羅
 type,ghost
 
-sakura.name,アイ
+sakura.name,東雲沙羅
 kero.name,kero_name
 
 shiori,SHIOLINK.dll

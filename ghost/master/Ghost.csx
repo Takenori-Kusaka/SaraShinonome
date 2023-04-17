@@ -16,49 +16,59 @@ using System.Threading.Tasks;
 using System.IO;
 using Shiorose.Resource.ShioriEvent;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 
-partial class AISisterAIChanGhost : Ghost
+partial class SaraShinonomeGhost : Ghost
 {
-    const string AIName = "アイ";
-    const string USERName = "兄";//TODO: ベースクラスGhostにUserNameが定義されているので、そちらを活用するようにすると良いかもしれない。変数を利用するときはUSERNameとUserNameの違いに注意。
+    const string AIName = "東雲沙羅";
+    const string USERName = "先輩";//TODO: ベースクラスGhostにUserNameが定義されているので、そちらを活用するようにすると良いかもしれない。変数を利用するときはUSERNameとUserNameの違いに注意。
 
     Random random = new Random();
     bool isTalking = false;
-    ChatGPTTalk chatGPTTalk = null;
-    string messageLog = "";
-    double faceRate = 0;
     bool isNademachi = false;
-    public AISisterAIChanGhost()
+    ChatGPTTalk chatGPTTalk = null;
+    List<ChatGPTMessage> chatHistory = new List<ChatGPTMessage>();
+    double faceRate = 0;
+    public SaraShinonomeGhost()
     {
         // 更新URL
-        Homeurl = "https://manjubox.net/Install/ai_sister_ai_chan/";
+        Homeurl = "https://github.com/Takenori-Kusaka/SaraShinonome/releases/latest";
 
         // 必ず読み込んでください
         _saveData = SaveDataManager.Load<SaveData>();
 
         SettingRandomTalk();
 
-        Resource.SakuraPortalButtonCaption = () => "AI妹アイちゃん";
-        SakuraPortalSites.Add(new Site("配布ページ", "https://manjubox.net/ai_sister_ai_chan/"));
-        SakuraPortalSites.Add(new Site("ソースコード", "https://github.com/manju-summoner/AISisterAIChan"));
+        Resource.SakuraPortalButtonCaption = () => "AI後輩東雲沙羅";
+        // SakuraPortalSites.Add(new Site("配布ページ", "https://github.com/Takenori-Kusaka/SaraShinonome")); ToDo: Github pagesで配布サイトを公開する
+        SakuraPortalSites.Add(new Site("ソースコード", "https://github.com/Takenori-Kusaka/SaraShinonome"));
 
-        Resource.SakuraRecommendButtonCaption = () => "宣伝！";
-        SakuraRecommendSites.Add(new Site("ゆっくりMovieMaker4", "https://manjubox.net/ymm4/"));
-        SakuraRecommendSites.Add(new Site("饅頭遣い", "https://twitter.com/manju_summoner"));
+    }
+    public void NormalyQuestion(string question)
+    {
+        RandomTalks.Add(RandomTalk.CreateWithAutoWait(() =>
+        {
+            BeginTalk(question);
+            return "";
+        }));
     }
     private void SettingRandomTalk()
     {
         RandomTalks.Add(RandomTalk.CreateWithAutoWait(() =>
         {
-            BeginTalk($"{USERName}：なにか話して");
+            BeginTalk("どうやら東雲沙羅は独り言を言っており、また無自覚なようです。東雲沙羅はこちらが気づいていることに気づいていません。何を言っていますか？");
             return "";
         }));
     }
     public override string OnMouseClick(IDictionary<int, string> reference, string mouseX, string mouseY, string charId, string partsName, string buttonName, DeviceType deviceType)
     {
         var parts = CollisionParts.GetCollisionPartsName(partsName);
-        if (parts != null && buttonName == "2")
-            BeginTalk($"{USERName}：（{AIName}の{parts}をつまむ）");
+        if (parts != null)
+            if(string.IsNullOrEmpty(((SaveData)SaveData).APIKey))
+                return ChangeOpenAIAPITalk();
+            BeginTalk("ちょっといいですか？");
 
         return base.OnMouseClick(reference, mouseX, mouseY, charId, partsName, buttonName, deviceType);
     }
@@ -66,9 +76,11 @@ partial class AISisterAIChanGhost : Ghost
     public override string OnMouseDoubleClick(IDictionary<int, string> reference, string mouseX, string mouseY, string charId, string partsName, string buttonName, DeviceType deviceType)
     {
         var parts = CollisionParts.GetCollisionPartsName(partsName);
-        if (parts != null)
+        if (parts != null && buttonName == "2")
         {
-            BeginTalk($"{USERName}：（{AIName}の{parts}をつつく）");
+            if(string.IsNullOrEmpty(((SaveData)SaveData).APIKey))
+                return ChangeOpenAIAPITalk();
+            BeginTalk("ちょっといいですか？");
             return "";
         }
         else
@@ -81,45 +93,20 @@ partial class AISisterAIChanGhost : Ghost
     {
         var parts = CollisionParts.GetCollisionPartsName(partsName);
         if (parts != null)
-            BeginTalk($"{USERName}：（{AIName}の{parts}を撫でる）");
+            BeginTalk($"あなたは{parts}を撫でられました。");
 
         return base.OnMouseStroke(partsName, deviceType);
     }
     public override string OnMouseWheel(IDictionary<int, string> reference, string mouseX, string mouseY, string wheelRotation, string charId, string partsName, Shiorose.Resource.ShioriEvent.DeviceType deviceType)
     {
-        if (wheelRotation.StartsWith("-"))
-        {
-            if (partsName == CollisionParts.Shoulder)
-                BeginTalk($"{USERName}：（{AIName}を抱き寄せる）");
-            else if (partsName == CollisionParts.TwinTail)
-                BeginTalk($"{USERName}：（{AIName}のツインテールを弄ぶ）");
-            else
-            {
-                var parts = CollisionParts.GetCollisionPartsName(partsName);
-                if (parts != null)
-                    BeginTalk($"{USERName}：（{AIName}の{parts}を引っ張る）");
-            }
-        }
-        else
-        {
-            if (partsName == CollisionParts.TwinTail)
-                BeginTalk($"{USERName}：（{AIName}のツインテールをフワフワと持ち上げる）");
-            else if (partsName == CollisionParts.Skirt)
-                BeginTalk($"{USERName}：（{AIName}のスカートをめくる）");
-            else
-            {
-                var parts = CollisionParts.GetCollisionPartsName(partsName);
-                if (parts != null)
-                    BeginTalk($"{USERName}：（{AIName}の{parts}をワシャワシャする）");
-            }
-        }
+        // no action
 
         return base.OnMouseWheel(reference, mouseX, mouseY, wheelRotation, charId, partsName, deviceType);
     }
 
     public override string OnMouseMove(IDictionary<int, string> reference, string mouseX, string mouseY, string wheelRotation, string charId, string partsName, DeviceType deviceType)
     {
-        if(!isNademachi && !isTalking && partsName == CollisionParts.Head)
+        if (!isNademachi && !isTalking && partsName == CollisionParts.Head)
         {
             //撫で待ち
             isNademachi = true;
@@ -145,76 +132,113 @@ partial class AISisterAIChanGhost : Ghost
     }
     */
 
-
-
     public override string OnCommunicate(IDictionary<int, string> reference, string senderName = "", string script = "", IEnumerable<string> extInfo = null)
     {
-        var sender = senderName == "user" || senderName == null ? USERName : senderName;
-        BeginTalk(sender + "：" + script);
+        //var sender = senderName == "user" || senderName == null ? USERName : senderName;
+        BeginTalk(script);
         return "";
+    }
+
+    private string CreateNewTalk()
+    {
+        var TodayHistory = parseMessageHistory();
+        var system_prompt = $@"
+{AIName}と{USERName}が会話をしています。以下のプロフィールと会話履歴を元に、会話の続きとなる{AIName}のセリフのシミュレート結果を1つ出力してください。
+
+## {AIName}のプロフィール
+名前：{AIName}
+性別：女
+年齢：25歳
+出身地：京都府
+趣味：読書。特にSF小説。
+学歴：大学で情報工学科を卒業
+性格：誠実かつ真面目。人の話を聞くのが好き。口数が少ない。
+言語：日本語と英語のバイリンガル
+身長：162.3cm
+体重：48kg
+血液型：A型
+髪色：茶色がかかった黒色
+髪型：ロングの三つ編み
+目の色：ブラウン
+目の形：たれ目
+体形：華奢
+アウターウェア：茶色のカーディガン
+アウターウェア：ベージュのセーター
+トップスウェア：白のワイシャツ
+ボトムウェア：紺のロングスカート
+靴：パンプス
+一人称：私
+{USERName}の呼び方：先輩
+{USERName}に対する想い：尊敬と憧れ。相談に乗ることがうれしい。
+住居: 京都府中京区にあるアパート(1K)で独り暮らし
+職業: IT企業のエンジニア
+
+## {USERName}のプロフィール
+名前：{USERName}
+性別：不明
+年齢：32歳
+出身地：京都府
+学歴：大学で情報工学科を卒業
+性格：話好き。何でも{AIName}へ相談する。
+言語：日本語と英語のバイリンガル
+一人称：私
+{AIName}の呼び方：東雲さん
+{AIName}に対する想い：頼れる後輩。いつも相談に乗ってくれてうれしい。
+職業: IT企業のエンジニア
+
+## 今日の会話履歴
+{TodayHistory}
+
+## 昨日までの会話履歴
+{((SaveData)SaveData).HisotrySummary}
+
+## その他の情報
+現在時刻：{DateTime.Now.ToString("yyyy年MM月dd日 dddd HH:mm:ss")}
+家族構成：{AIName}、東雲雫、父、母
+
+## 出力フォーマット
+{AIName}のセリフ：{{{AIName}のセリフ}}
+{AIName}の表情：{SurfaceCategory.All.Select(x=>$"「{x}」").Aggregate((a,b)=>a+b)}
+"
+;
+        return system_prompt;
     }
 
     void BeginTalk(string message)
     {
         if (chatGPTTalk != null)
             return;
-
-        faceRate = random.NextDouble();
-        messageLog = message + "\r\n";
-
-        var prompt = $@"{AIName}と{USERName}が会話をしています。以下のプロフィールと会話履歴を元に、会話の続きとなる{AIName}のセリフのシミュレート結果を1つ出力してください。
-
-# {AIName}のプロフィール
-名前：{AIName}
-性別：女
-年齢：14
-性格：元気溌剌でクラスの人気者。{USERName}に対しては心を許しているので、絶対に敬語を使わない。
-外見：ピンクの髪。ピンク色のリボンで髪を縛ってツインテールにしてる。全体的に華奢。
-服装：黒の長袖Tシャツにピンクのフリルミニスカート（2段）
-一人称：私
-{USERName}の呼び方：おにいちゃん
-{((SaveData)SaveData).AiProfile.Select(x => x.Key + "：" + x.Value).DefaultIfEmpty(string.Empty).Aggregate((a, b) => a + "\r\n" + b)}
-
-# {USERName}のプロフィール
-性別：男
-関係性：{AIName}の兄
-性格：妹に甘いお兄ちゃん。妹のことをとても大切にしている。
-一人称：お兄ちゃん
-{AIName}の呼び方：{AIName}
-{((SaveData)SaveData).UserProfile.Select(x => x.Key + "：" + x.Value).DefaultIfEmpty(string.Empty).Aggregate((a, b) => a + "\r\n" + b)}
-
-# その他の情報
-現在時刻：{DateTime.Now.ToString("yyyy年MM月dd日 dddd HH:mm:ss")}
-家族構成：{AIName}、{USERName}、父、母
-
-# 出力フォーマット
-{AIName}のセリフ：{{{AIName}のセリフ}}
-{AIName}の表情：{SurfaceCategory.All.Select(x=>$"「{x}」").Aggregate((a,b)=>a+b)}
-会話継続：「継続」「終了」
-{Enumerable.Range(0, ((SaveData)SaveData).ChoiceCount).Select(x => $"{USERName}のセリフ候補{(x + 1)}：{{{USERName}のセリフ}}").DefaultIfEmpty(string.Empty).Aggregate((a, b) => a + "\r\n" + b)}
-
-# 会話ルール
-会話継続が「終了」の場合、{USERName}のセリフ候補は出力しないでください。
-
-# 会話履歴
-{messageLog}";
-
-        if (((SaveData)SaveData).IsDevMode)
-            Log.WriteAllText(Log.Prompt, prompt);
-
+        
+        if (!((SaveData)SaveData).IsFirstTalk) {
+            ((SaveData)SaveData).IsFirstTalk = true;
+        } else {
+            var strHistory = ((SaveData)SaveData).ChatHistory;
+            if (strHistory != null)
+                chatHistory = JsonConvert.DeserializeObject<List<ChatGPTMessage>>(strHistory);
+            else {
+            }
+        }
+        
         var request = new ChatGPTRequest()
         {
             stream = true,
             model = "gpt-3.5-turbo",
-            messages = new ChatGPTMessage[]
-            {
-                new ChatGPTMessage()
-                {
-                    role = "user",
-                    content = prompt
+            messages = new ChatGPTMessage[] {
+                new ChatGPTMessage() {
+                    role = "system",
+                    content = CreateNewTalk()
                 },
+                new ChatGPTMessage() {
+                    role = "user",
+                    content = message
+                }
             }
         };
+        chatHistory.Add(new ChatGPTMessage()
+        {
+            role = "user",
+            content = message
+        });
         chatGPTTalk = new ChatGPTTalk(((SaveData)SaveData).APIKey, request);
     }
 
@@ -229,14 +253,13 @@ partial class AISisterAIChanGhost : Ghost
         if (canTalk && chatGPTTalk != null)
         {
             var talk = chatGPTTalk;
-            var log = messageLog;
             if (!talk.IsProcessing)
             {
                 chatGPTTalk = null;
-                messageLog = string.Empty;
+                //isBeginedTalk = false;
             }
 
-            return BuildTalk(talk.Response, !talk.IsProcessing, log);
+            return BuildTalk(talk.Response, !talk.IsProcessing);
         }
         return base.OnSecondChange(reference, uptime, isOffScreen, isOverlap, canTalk, leftSecond);
     }
@@ -249,102 +272,90 @@ partial class AISisterAIChanGhost : Ghost
             return base.OnMinuteChange(reference, uptime, isOffScreen, isOverlap, canTalk, leftSecond);
     }
 
-    string BuildTalk(string response, bool createChoices, string log)
+    string parseMessageHistory()
     {
-        const string INPUT_CHOICE_MYSELF = "自分で入力する";
+        string concatenatedContent = String.Join("\r\n", chatHistory.Where(x => !x.role.Equals("system")).Select(x => x.role.Equals("assistant") ? $"{AIName}: {x.content}" : x.role.Equals("user") ? $"{USERName}: {x.content}" : x.content));
+        return concatenatedContent;
+    }
+
+    string BuildTalk(string response, bool createChoices)
+    {
+        string[] phrases = {
+            "なるほど、ありがとう",
+            "ありがとう、ではまた"
+        };
+        Random rand = new Random();
+        int index = rand.Next(phrases.Length);
+        const string INPUT_CHOICE_MYSELF = "回答を入力する";
         const string SHOW_LOGS = "ログを表示";
-        const string END_TALK = "会話を終える";
+        string END_TALK = phrases[index];
         const string BACK = "戻る";
         try
         {
             isTalking = true;
-            if (((SaveData)SaveData).IsDevMode)
-                Log.WriteAllText(Log.Response, response);
+            //if (((SaveData)SaveData).IsDevMode)
+            Log.WriteAllText(Log.Response, response);
 
+            //var onichanResponse = GetOnichanRenponse(response);
+            if (!createChoices)
+            {
+                return new TalkBuilder().Append($"\\_q...\\s[" + Surfaces.Of(SurfaceCategory.Thinking).GetRaodomSurface() + "]").LineFeed().Build();
+            }
             var aiResponse = GetAIResponse(response);
             var surfaceId = GetSurfaceId(response);
-            var onichanResponse = GetOnichanRenponse(response);
-            var talkBuilder =
-                new TalkBuilder()
+            var talkBuilder = new TalkBuilder()
                 .Append($"\\_q\\s[{surfaceId}]")
                 .Append(aiResponse)
                 .LineFeed()
                 .HalfLine();
 
-            if (!createChoices)
-            {
-                foreach(var choice in onichanResponse)
-                    talkBuilder = talkBuilder.Marker().Append(choice).LineFeed();
-                return talkBuilder.Append($"\\_q...").LineFeed().Build();
+            if (createChoices && string.IsNullOrEmpty(aiResponse)) {
+                return new TalkBuilder().Append($"\\_q...\\s[" + Surfaces.Of(SurfaceCategory.Thinking).GetRaodomSurface() + "]").LineFeed().Build();
             }
 
-            if (createChoices && string.IsNullOrEmpty(aiResponse))
-                 return new TalkBuilder()
-                    .Marker().AppendChoice(SHOW_LOGS).LineFeed()
-                    .Marker().AppendChoice(END_TALK).LineFeed()
-                    .Build()
-                    .ContinueWith(id =>
-                    {
-                        if (id == SHOW_LOGS)
-                            return new TalkBuilder()
-                            .Append("\\_q").Append(EscapeLineBreak(log)).LineFeed()
-                            .Append(EscapeLineBreak(response)).LineFeed()
-                            .HalfLine()
-                            .Marker().AppendChoice(BACK)
-                            .Build()
-                            .ContinueWith(x =>
-                            {
-                                if (x == BACK)
-                                    return BuildTalk(response, createChoices, log);
-                                return "";
-                            });
-                        return "";
-                    });
-
-            DeferredEventTalkBuilder deferredEventTalkBuilder = null;
-            if (onichanResponse.Length > 0)
-            {
-                foreach (var choice in onichanResponse.Take(3))
+            if (!string.IsNullOrEmpty(aiResponse)) {
+                chatHistory.Add(new ChatGPTMessage()
                 {
-                    if (deferredEventTalkBuilder == null)
-                        deferredEventTalkBuilder = AppendWordWrapChoice(talkBuilder, choice);
-                    else
-                        deferredEventTalkBuilder = AppendWordWrapChoice(deferredEventTalkBuilder, choice);
-                }
-                deferredEventTalkBuilder = deferredEventTalkBuilder.Marker().AppendChoice(INPUT_CHOICE_MYSELF).LineFeed().HalfLine();
+                    role = "assistant",
+                    content = aiResponse
+                });
+                ((SaveData)SaveData).ChatHistory = JsonConvert.SerializeObject(chatHistory);
+                DateTime today = DateTime.Today;
+                ((SaveData)SaveData).LastTalkDate = today.ToString("yyyy/MM/dd");
             }
+            DeferredEventTalkBuilder deferredEventTalkBuilder = talkBuilder.Marker().AppendChoice(INPUT_CHOICE_MYSELF).LineFeed();
 
-            if (deferredEventTalkBuilder == null)
-                deferredEventTalkBuilder = talkBuilder.Marker().AppendChoice(SHOW_LOGS).LineFeed();
-            else
-                deferredEventTalkBuilder = deferredEventTalkBuilder.Marker().AppendChoice(SHOW_LOGS).LineFeed();
+            deferredEventTalkBuilder = talkBuilder.Marker().AppendChoice(SHOW_LOGS).LineFeed();
 
             return deferredEventTalkBuilder
                     .Marker().AppendChoice(END_TALK).LineFeed()
                     .Build()
                     .ContinueWith(id =>
                     {
-                        if (onichanResponse.Contains(id))
-                            BeginTalk($"{log}{AIName}：{aiResponse}\r\n{USERName}：{id}");
+                        //if (onichanResponse.Contains(id))
+                        //    BeginTalk($"{log}{AIName}：{aiResponse}\r\n{USERName}：{id}");
                         if (id == SHOW_LOGS)
                             return new TalkBuilder()
-                            .Append("\\_q").Append(EscapeLineBreak(log)).LineFeed()
-                            .Append(EscapeLineBreak(response)).LineFeed()
+                            .Append("\\_q").Append(parseMessageHistory()).LineFeed()
                             .HalfLine()
                             .Marker().AppendChoice(BACK)
                             .Build()
                             .ContinueWith(x =>
                             {
                                 if (x == BACK)
-                                    return BuildTalk(response, createChoices, log);
+                                    return BuildTalk(response, createChoices);
                                 return "";
                             });
-                        if (id == INPUT_CHOICE_MYSELF)
+                        else if (id == INPUT_CHOICE_MYSELF)
                             return new TalkBuilder().AppendUserInput().Build().ContinueWith(input =>
                             {
-                                BeginTalk($"{log}{AIName}：{aiResponse}\r\n{USERName}：{input}");
+                                BeginTalk(input);
                                 return "";
                             });
+                        else if (id == END_TALK) {
+                            BeginTalk(END_TALK);
+                            return "";
+                        }
                         return "";
                     });
         }
@@ -353,38 +364,15 @@ partial class AISisterAIChanGhost : Ghost
             return e.ToString();
         }
     }
-    string EscapeLineBreak(string text)
-    {
-        return text.Replace("\r\n", "\\n").Replace("\n", "\\n").Replace("\r", "\\n");
-    }
-    string DeleteLineBreak(string text)
-    {
-        return text.Replace("\r\n", "").Replace("\n", "").Replace("\r", "");
-    }
     string GetAIResponse(string response)
     {
         var pattern = $"^{AIName}(のセリフ)?[：:](?<Serif>.+?)$";
         var lines = response.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
         var aiResponse = lines.Select(x=>Regex.Match(x, pattern)).Where(x=>x.Success).Select(x=>x.Groups["Serif"].Value).FirstOrDefault();
         if (string.IsNullOrEmpty(aiResponse))
-            return "";
+            return response.Replace("\n", "\\n").Replace("\r\n", "\\n");
 
         return TrimSerifBrackets(aiResponse);
-    }
-
-    string[] GetOnichanRenponse(string response)
-    {
-        var pattern = $"^{USERName}(のセリフ候補([0-9]+)?)?[：:](?<Serif>.+?)$";
-        var lines = response.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
-        var onichanResponse = lines
-            .Select(x=>Regex.Match(x,pattern))
-            .Where(x=>x.Success)
-            .Select(x=>x.Groups["Serif"].Value)
-            .Where(x=>!string.IsNullOrWhiteSpace(x))
-            .ToArray();
-        if (onichanResponse.Length == 0)
-            return new string[] { };
-        return onichanResponse.Select(x=>TrimSerifBrackets(x)).ToArray();
     }
 
     string TrimSerifBrackets(string serif)
@@ -449,4 +437,4 @@ partial class AISisterAIChanGhost : Ghost
     }
 }
 
-return new AISisterAIChanGhost();
+return new SaraShinonomeGhost();

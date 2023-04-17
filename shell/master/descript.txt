@@ -1,11 +1,11 @@
 charset,UTF-8
-craftman,nekobottle
+craftman,TakenoriKusaka
 id,master
 name,master
 type,shell
-craftmanw,ボトル猫
-craftmanurl,https://twitter.com/nekobottle
-
+craftmanw,日下武紀
+craftmanurl,https://twitter.com/TakenoriKusaka
+seriko.use_self_alpha,1
 sakura.balloon.offsetx,38
 sakura.balloon.offsety,58
 kero.balloon.offsetx,0

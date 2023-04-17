@@ -25,19 +25,22 @@ public class SaveData : BaseSaveData {
     public string APIKey { get; set; }
 
     [DataMember]
-    public int ChoiceCount { get; set; } = 2;
-
-    [DataMember]
-    public Dictionary<string,string> AiProfile{ get; set; } = new Dictionary<string, string>();
-
-    [DataMember]
-    public Dictionary<string,string> UserProfile{ get; set; } = new Dictionary<string, string>();
-
-    [DataMember]
     public bool IsDevMode { get; set; } = false;
 
     [DataMember]
-    public bool IsRandomIdlingSurfaceEnabled { get; set; } = true;
+    public bool IsFirstTalk { get; set; } = false;
+    
+    [DataMember]
+    public string LastTalkDate { get; set; } = "1970/01/01";
+    
+    [DataMember]
+    public string HisotrySummary { get; set; } = "";
+    
+    [DataMember]
+    public string ChatHistory { get; set; } = "";
+
+    [DataMember]
+    public bool IsRandomIdlingSurfaceEnabled { get; set; } = false;
 
     /// <summary>
     /// デフォルト値はここで設定
@@ -46,8 +49,10 @@ public class SaveData : BaseSaveData {
     /// </summary>
     public SaveData()
     {
-        UserName = "お兄ちゃん";
-        TalkInterval = 300;
+        UserName = "先輩";
+        TalkInterval = 1800;
+        IsFirstTalk = false;
+        IsDevMode = false;
     }
 }
 

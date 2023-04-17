@@ -1,6 +1,6 @@
 charset,UTF8
 
 type,ghost
-name,AI妹アイちゃん
-directory,ai_sister_ai_chan
+name,AI後輩東雲沙羅
+directory,ai_sara_shinonome
 
