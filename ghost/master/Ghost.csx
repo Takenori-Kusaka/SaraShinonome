@@ -189,7 +189,7 @@ partial class SaraShinonomeGhost : Ghost
 ## 今日の会話履歴
 {TodayHistory}
 
-## 昨日までの会話履歴
+## これまでのキーワード
 {((SaveData)SaveData).HisotrySummary}
 
 ## その他の情報

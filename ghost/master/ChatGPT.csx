@@ -15,20 +15,28 @@ using System.Collections.Generic;
 public class OpenAISummarizer
 {
     private readonly string apiKey;
-    private readonly string modelEngine;
 
     public OpenAISummarizer(string apiKey)
     {
         this.apiKey = apiKey;
-        modelEngine = "davinci";
     }
 
     public async Task<string> SummarizeText(string text)
     {
-        var result = "";
-        var endpoint = "https://api.openai.com/v1/engines/" + modelEngine + "/completions";
-        var prompt = "Please summarize the following text:\n\n" + text + "\n\nSummary:";
-        var content = new StringContent($"{{\"prompt\": \"{prompt}\", \"max_tokens\": 60, \"n\": 1, \"stop\": null, \"temperature\": 0.7}}", System.Text.Encoding.UTF8, "application/json");
+        var endpoint = "https://api.openai.com/v1/completions";
+        var prompt = "次の文章から単語をカンマ区切りでリストアップしてください。重複したものは破棄してください。特徴的なものだけに絞ってください。\n" + text + "\n";
+        var requestBody = new
+        {
+            model = "text-davinci-003",
+            prompt = prompt,
+            max_tokens = 200,
+            n = 1,
+            temperature = 0.9
+        };
+
+        var requestJson = JsonConvert.SerializeObject(requestBody);
+            
+        var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
         using (var request = new HttpRequestMessage(HttpMethod.Post, endpoint))
         {
             request.Headers.Add("Authorization", $"Bearer {apiKey}");
@@ -39,14 +47,47 @@ public class OpenAISummarizer
             using (var reader = new StreamReader(stream))
             {
                 var res = await reader.ReadToEndAsync();
-                var summary = res.Substring(res.IndexOf("\"text\": \"") + 9);
-                summary = summary.Substring(0, summary.IndexOf("\",\""));
-                summary = summary.Trim();
-                result += summary;
+                var chunk = JsonConvert.DeserializeObject<CompletionsGPTResponse>(res);
+                Console.WriteLine(chunk);
+                var summary = chunk.choices[0].text;
                 return summary;
             }
         }
     }
+}
+
+public class CompletionsGPTRequest
+{
+    public string model;
+    public string prompt;
+    public int max_tokens;
+    public int top_p;
+    public int n;
+    public int logprobs;
+    public float temperature;
+    public bool stream;
+    public string stop;
+}
+public class CompletionsGPTResponse
+{
+    public string id;
+    public string @object;
+    public int created;
+    public string model;
+    public CompletionsGPTUsage usage;
+    public CompletionsGPTChoice[] choices;
+}
+public class CompletionsGPTUsage
+{
+    public int prompt_tokens;
+    public int completion_tokens;
+    public int total_tokens;
+}
+public class CompletionsGPTChoice
+{
+    public string text;
+    public string finish_reason;
+    public int index;
 }
 public class ChatGPTTalk
 {
@@ -77,7 +118,7 @@ public class ChatGPTTalk
 
             var requestJson = JsonConvert.SerializeObject(requestBody);
             var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-            ;
+            
             var content_str = await content.ReadAsStringAsync();
             Log.WriteAllText(Log.Prompt, "BeginTalk: " + content_str);
             using (var request = new HttpRequestMessage(HttpMethod.Post, endpoint))
