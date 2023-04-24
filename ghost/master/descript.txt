@@ -4,7 +4,7 @@ craftman,Takenori Kusaka
 craftmanw,Takenori Kusaka
 craftmanurl,https://twitter.com/TakenoriKusaka
 
-name,AI後輩東雲沙羅
+name,AI東雲沙羅
 type,ghost
 
 sakura.name,東雲沙羅

@@ -14,7 +14,11 @@ using System.Threading.Tasks;
 public class SaveData : BaseSaveData {
     /* BaseSaveDataで定義済み */
     // int TalkInterval => ランダムトークの間隔
-    // string UserName => ユーザ名
+    [DataMember]
+    public string AIName { get; set; } = "";
+
+    [DataMember]
+    public string UserName { get; set; } = "";
 
     //ベースクラスのTalkIntervalに[DataMember]が付いていないので値が保存されない
     [DataMember]
@@ -34,7 +38,7 @@ public class SaveData : BaseSaveData {
     public string LastTalkDate { get; set; } = "1970/01/01";
     
     [DataMember]
-    public string HisotrySummary { get; set; } = "";
+    public string HistorySummary { get; set; } = "";
     
     [DataMember]
     public string ChatHistory { get; set; } = "";
@@ -49,6 +53,7 @@ public class SaveData : BaseSaveData {
     /// </summary>
     public SaveData()
     {
+        AIName = "東雲沙羅";
         UserName = "先輩";
         TalkInterval = 1800;
         IsFirstTalk = false;

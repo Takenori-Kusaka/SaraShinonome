@@ -1,5 +1,9 @@
 #r "Newtonsoft.Json.dll"
+#r "Microsoft.Extensions.Http.dll"
+#r "Microsoft.Bcl.AsyncInterfaces.dll"
+#r "OpenAI_API.dll"
 #load "Log.csx"
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -10,137 +14,83 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-
-
-public class OpenAISummarizer
+using OpenAI_API.Chat;
+using OpenAI_API.Completions;
+using OpenAI_API.Models;
+using OpenAI_API.Moderation;
+public class ChatGPTRequest
 {
-    private readonly string apiKey;
-
-    public OpenAISummarizer(string apiKey)
-    {
-        this.apiKey = apiKey;
-    }
-
-    public async Task<string> SummarizeText(string text)
-    {
-        var endpoint = "https://api.openai.com/v1/completions";
-        var prompt = "次の文章から単語をカンマ区切りでリストアップしてください。重複したものは破棄してください。特徴的なものだけに絞ってください。\n" + text + "\n";
-        var requestBody = new
-        {
-            model = "text-davinci-003",
-            prompt = prompt,
-            max_tokens = 200,
-            n = 1,
-            temperature = 0.9
-        };
-
-        var requestJson = JsonConvert.SerializeObject(requestBody);
-            
-        var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-        using (var request = new HttpRequestMessage(HttpMethod.Post, endpoint))
-        {
-            request.Headers.Add("Authorization", $"Bearer {apiKey}");
-            request.Content = content;
-            var client = new HttpClient();
-            using (var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
-            using (var stream = await response.Content.ReadAsStreamAsync())
-            using (var reader = new StreamReader(stream))
-            {
-                var res = await reader.ReadToEndAsync();
-                var chunk = JsonConvert.DeserializeObject<CompletionsGPTResponse>(res);
-                Console.WriteLine(chunk);
-                var summary = chunk.choices[0].text;
-                return summary;
-            }
-        }
-    }
-}
-
-public class CompletionsGPTRequest
-{
-    public string model;
-    public string prompt;
-    public int max_tokens;
-    public int top_p;
-    public int n;
-    public int logprobs;
-    public float temperature;
-    public bool stream;
-    public string stop;
-}
-public class CompletionsGPTResponse
-{
-    public string id;
-    public string @object;
-    public int created;
-    public string model;
-    public CompletionsGPTUsage usage;
-    public CompletionsGPTChoice[] choices;
-}
-public class CompletionsGPTUsage
-{
-    public int prompt_tokens;
-    public int completion_tokens;
-    public int total_tokens;
-}
-public class CompletionsGPTChoice
-{
-    public string text;
-    public string finish_reason;
-    public int index;
-}
-public class ChatGPTTalk
-{
+    private readonly OpenAI_API.APIAuthentication apiKey;
+    private OpenAI_API.OpenAIAPI api;
     public string Response { get; private set; } = string.Empty;
     public bool IsProcessing { get; private set; }
 
-    public ChatGPTTalk(string apiKey, ChatGPTRequest chatGPTRequest)
+    private string ChatMessagesToString(ChatMessage[] messages)
     {
-        _ = Process(apiKey, chatGPTRequest);
+        string result = $@"System: {messages[0].Content}
+User: {messages[1].Content}";
+        return result;
+    }
+    public ChatGPTRequest(string apiKey, ChatMessage[] messages)
+    {
+        this.apiKey = new OpenAI_API.APIAuthentication(apiKey);
+        this.api = new OpenAI_API.OpenAIAPI(this.apiKey);
+        _ = ChatGPTRequestMessage(messages);
     }
 
-    async Task Process(string apiKey, ChatGPTRequest chatGPTRequest)
+    async Task ChatGPTRequestMessage(ChatMessage[] messages)
     {
         IsProcessing = true;
-        try
+        try{
+            Log.WriteAllText(Log.Prompt, "BeginTalk: " + ChatMessagesToString(messages));
+            OpenAI_API.Chat.ChatResult results = await api.Chat.CreateChatCompletionAsync(new ChatRequest()
+            {
+                Model = Model.ChatGPTTurbo,
+                Temperature = 0.7,
+                Messages = messages
+            });
+            OpenAI_API.Chat.ChatChoice choice = results.Choices[0];
+            Response = choice.Message.Content;
+        }
+        catch (Exception e)
         {
-            if (!chatGPTRequest.stream)
-                throw new InvalidOperationException("stream should be true");
+            Response = e.ToString();
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+//
+    }
 
-            var result = "";
-            var endpoint = "https://api.openai.com/v1/chat/completions";
+}
+public class CompletionsGPTRequest
+{
+    private readonly OpenAI_API.APIAuthentication apiKey;
+    private OpenAI_API.OpenAIAPI api;
+    public string Response { get; private set; } = string.Empty;
+    public bool IsProcessing { get; private set; }
 
-            var requestBody = new
+    public CompletionsGPTRequest(string apiKey, string text)
+    {
+        this.apiKey = new OpenAI_API.APIAuthentication(apiKey);
+        this.api = new OpenAI_API.OpenAIAPI(this.apiKey);
+        _ = ChatGPTRequestSummary(text);
+    }
+
+    async Task ChatGPTRequestSummary(string text)
+    {
+        IsProcessing = true;
+        try{
+            Log.WriteAllText(Log.Prompt, "BeginSummary: " + text);
+            OpenAI_API.Completions.CompletionResult results = await api.Completions.CreateCompletionsAsync(new OpenAI_API.Completions.CompletionRequest()
             {
-                model = chatGPTRequest.model,
-                messages = chatGPTRequest.messages
-            };
-
-            var requestJson = JsonConvert.SerializeObject(requestBody);
-            var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
-            
-            var content_str = await content.ReadAsStringAsync();
-            Log.WriteAllText(Log.Prompt, "BeginTalk: " + content_str);
-            using (var request = new HttpRequestMessage(HttpMethod.Post, endpoint))
-            {
-                request.Headers.Add("Authorization", $"Bearer {apiKey}");
-                request.Content = content;
-                var client = new HttpClient();
-                using (var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead))
-                using (var stream = await response.Content.ReadAsStreamAsync())
-                using (var reader = new StreamReader(stream))
-                {
-                    var res = await reader.ReadToEndAsync();
-                    var chunk = JsonConvert.DeserializeObject<ChatGPTResponse>(res);
-                    var delta = chunk.choices[0].message.content;
-                    if (!string.IsNullOrEmpty(delta))
-                    {
-                        result += delta;
-                        Response = result;
-                    }
-                    //Log.WriteAllText(Log.Response, "Response: " + Response);
-                }
-            }
+                Model = Model.DavinciText, 
+                Temperature = 0.7,
+                Prompt = text
+            });
+            OpenAI_API.Completions.Choice completion = results.Completions[0];
+            Response = completion.Text;
         }
         catch (Exception e)
         {
@@ -151,52 +101,4 @@ public class ChatGPTTalk
             IsProcessing = false;
         }
     }
-}
-public class ChatGPTRequest
-{
-    public string model;
-    public ChatGPTMessage[] messages;
-    public bool stream;
-}
-public class ChatGPTMessage
-{
-    public string role;
-    public string content;
-}
-public class ChatGPTResponse
-{
-    public string id;
-    public string @object;
-    public int created;
-    public string model;
-    public ChatGPTUsage usage;
-    public ChatGPTChoice[] choices;
-}
-public class ChatGPTUsage
-{
-    public int prompt_tokens;
-    public int completion_tokens;
-    public int total_tokens;
-}
-public class ChatGPTChoice
-{
-    public ChatGPTMessage message;
-    public string finish_reason;
-    public int index;
-}
-public class ChatGPTStreamChunk
-{
-    public string id;
-    public string @object;
-    public int created;
-    public string model;
-    public ChatGPTChoiceDelta[] choices;
-    public int index;
-    public string finish_reason;
-}
-public class ChatGPTChoiceDelta
-{
-    public ChatGPTMessage delta;
-    public string finish_reason;
-    public int index;
 }

@@ -64,33 +64,40 @@ partial class SaraShinonomeGhost : Ghost
                                         case SETTINGS:
                                             return SettingsTalk();
                                         default:
-                                            return new TalkBuilder().Append("はい、わかりました").BuildWithAutoWait();
+                                            return "";
                                     }
                                 });
     }
 
     private string SettingsTalk(){
+        string CHANGE_USER_NAME = $"呼ばれ方を変更する（現在：{((SaveData)SaveData).UserName}）";
         const string CHANGE_OPENAI_API = "OpenAIのAPIキーを変更する";
         const string CHANGE_RANDOMTALK_INTERVAL = "ランダムトークの頻度を変更する";
         string CHANGE_RANDOM_IDLING_SURFACE = "定期的に身じろぎする（現在："+(((SaveData)SaveData).IsRandomIdlingSurfaceEnabled ? "有効" : "無効")+"）";
         string CHANGE_DEVMODE = "開発者モードを変更する（現在："+(((SaveData)SaveData).IsDevMode ? "有効" : "無効")+"）";
+        const string RESET_TALK = "現在の会話をリセットする";
+        const string RESET_HISTORY = "過去の履歴をリセットする";
         const string BAKC = "戻る";
         return new TalkBuilder()
         .Append("何か契約条件が変わりますか？")
         .LineFeed()
         .HalfLine()
+        .Marker().AppendChoice(CHANGE_USER_NAME).LineFeed()
         .Marker().AppendChoice(CHANGE_OPENAI_API).LineFeed()
         .HalfLine()
         .Marker().AppendChoice(CHANGE_RANDOMTALK_INTERVAL).LineFeed()
         .Marker().AppendChoice(CHANGE_RANDOM_IDLING_SURFACE).LineFeed()
         .HalfLine()
-        .Marker().AppendChoice(CHANGE_DEVMODE).LineFeed()
+        .Marker().AppendChoice(RESET_TALK).LineFeed()
+        .Marker().AppendChoice(RESET_HISTORY).LineFeed()
         .HalfLine()
         .Marker().AppendChoice(BAKC)
         .BuildWithAutoWait()
         .ContinueWith(id=>
         {
-            if (id == CHANGE_OPENAI_API)
+            if (id == CHANGE_USER_NAME)
+                return ChangeUserName();
+            else if (id == CHANGE_OPENAI_API)
                 return ChangeOpenAIAPITalk();
             else if (id == CHANGE_RANDOMTALK_INTERVAL)
                 return ChangeRandomTalkIntervalTalk();
@@ -104,9 +111,31 @@ partial class SaraShinonomeGhost : Ghost
                 ((SaveData)SaveData).IsDevMode = !((SaveData)SaveData).IsDevMode;
                 return SettingsTalk();
             }
+            else if (id == RESET_TALK)
+            {
+                ((SaveData)SaveData).ChatHistory = "";
+                return SettingsTalk();
+            }
+            else if (id == RESET_HISTORY)
+            {
+                ((SaveData)SaveData).HistorySummary = "";
+                return SettingsTalk();
+            }
             else
                 return OpenMenu();
         });
+    }
+
+    private string ChangeUserName()
+    {
+        return new TalkBuilder().Append("どうお呼びしましょうか？")
+                                .AppendPassInput(defValue:((SaveData)SaveData).UserName)
+                                .Build()
+                                .ContinueWith(username=>
+                                {
+                                    ((SaveData)SaveData).UserName = username;
+                                    return new TalkBuilder().Append($"わかりました、改めてよろしくお願いします、{((SaveData)SaveData).UserName}").BuildWithAutoWait();
+                                });
     }
 
     private string ChangeOpenAIAPITalk(){

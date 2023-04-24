@@ -1,6 +1,6 @@
 charset,UTF8
 
 type,ghost
-name,AI後輩東雲沙羅
+name,AI東雲沙羅
 directory,ai_sara_shinonome
 

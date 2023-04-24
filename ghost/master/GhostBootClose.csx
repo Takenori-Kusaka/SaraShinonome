@@ -29,31 +29,33 @@ partial class SaraShinonomeGhost : Ghost
             return null;
         }
     }
-    
-    private string GenerateSummaryHistory()
+    private string GreetingByTime()
     {
-        List<string> result = new List<string>();
-        result.AddRange(((SaveData)SaveData).HisotrySummary.Split(',').ToList());
-        OpenAISummarizer summarizer = new OpenAISummarizer(((SaveData)SaveData).APIKey);
-        var summaryTask = summarizer.SummarizeText(((SaveData)SaveData).ChatHistory);
-        summaryTask.Wait();
-        result.AddRange(summaryTask.Result.Split(',').ToList());
-        List<string> compressedWords = result.Distinct().ToList();
+        DateTime now = DateTime.Now;
+        int hour = now.Hour;
 
-        return string.Join(",", compressedWords);
+        if (hour >= 5 && hour <= 10)
+        {
+            return "おはようございます";
+        }
+        else if (hour >= 11 && hour <= 17)
+        {
+            return "こんにちは";
+        }
+        else
+        {
+            return "こんばんは";
+        }
     }
     public override string OnBoot(IDictionary<int, string> references, string shellName = "", bool isHalt = false, string haltGhostName = "")
     {  
         if (((SaveData)SaveData).IsFirstTalk) {
             var today = IsToday(((SaveData)SaveData).LastTalkDate);
             if (today!=null) {
-                var summary = GenerateSummaryHistory();
-                ((SaveData)SaveData).HisotrySummary = summary;
                 ((SaveData)SaveData).IsFirstTalk = false;
-                ((SaveData)SaveData).ChatHistory = "";
                 ((SaveData)SaveData).LastTalkDate = today;
                 return new TalkBuilder()
-                .AppendLine("すいません、昨日までのことを整理してました。")
+                .AppendLine($"{GreetingByTime()}、先輩。")
                 .AppendLine("今日も一日よろしくお願いいたします。")
                 .BuildWithAutoWait();
             } else {
